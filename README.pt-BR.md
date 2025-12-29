@@ -43,6 +43,11 @@ sudo apt install just
 sudo dnf install just
 ```
 
+**Arch Linux:**
+```bash
+sudo pacman -S just
+```
+
 ### Bibliotecas de Desenvolvimento do Sistema
 Estas bibliotecas são frequentemente necessárias para funcionalidades de monitoramento do sistema e de rede.
 
@@ -58,5 +63,7 @@ sudo dnf groupinstall "Development Tools"
 sudo dnf install lm_sensors-devel gtk3-devel dbus-devel
 ```
 
----
-*Nota: Se a compilação falhar, verifique se você tem o `just`, `rust` e as bibliotecas de sistema instaladas.*
+**Arch Linux:**
+```bash
+sudo pacman -S base-devel lm_sensors gtk3 dbus
+```
