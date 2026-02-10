@@ -14,10 +14,10 @@ Um applet leve de monitoramento de sistema que se integra perfeitamente ao COSMI
 
 | Distribuição | Status |
 |--------------|--------|
-| Pop!_OS 22.04+ |
-| Ubuntu 22.04+ |
-| Fedora 38+ |
-| Arch Linux | 
+| Pop!_OS 22.04+ |ok |
+| Ubuntu 22.04+ |ok |
+| Fedora 38+ |ok |
+| Arch Linux | ok |
 
 > **Nota**: Este applet foi projetado especificamente para o COSMIC Desktop.
 

@@ -14,10 +14,10 @@ A lightweight system monitoring applet that integrates seamlessly with COSMIC De
 
 | Distribution | Status |
 |--------------|--------|
-| Pop!_OS 22.04+ | 
-| Ubuntu 22.04+ | 
-| Fedora 38+ | 
-| Arch Linux | 
+| Pop!_OS 22.04+ | ok |
+| Ubuntu 22.04+ | ok |
+| Fedora 38+ | ok |
+| Arch Linux | ok | 
 
 > **Note**: This applet is designed specifically for COSMIC Desktop. 
 
