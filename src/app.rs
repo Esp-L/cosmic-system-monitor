@@ -6,6 +6,7 @@ use crate::config::Config;
 use std::time::Duration;
 use cosmic::iced::time;
 use std::fs;
+use std::process::Command;
 
 pub struct AppModel {
     core: cosmic::Core,
@@ -91,7 +92,7 @@ impl cosmic::Application for AppModel {
                     let label = component.label();
                     if label == "Tctl" || label.contains("CPU") || label.contains("Package id 0") {
                         self.cpu_temp = component.temperature().unwrap_or(0.0);
-                    } else if label == "edge" || label == "junction" || label.contains("GPU") || label.contains("amdgpu") {
+                    } else if label == "edge" || label == "junction" || label.contains("GPU") || label.contains("amdgpu") || label.contains("nvidia") || label.contains("nvme") {
                         if label == "edge" || self.gpu_temp == 0.0 {
                             self.gpu_temp = component.temperature().unwrap_or(0.0);
                         }
@@ -192,5 +193,19 @@ fn read_gpu_usage() -> Option<f32> {
             }
         }
     }
+    
+    // Fallback para NVIDIA usando nvidia-smi
+    if let Ok(output) = Command::new("nvidia-smi")
+        .arg("--query-gpu=utilization.gpu")
+        .arg("--format=csv,noheader,nounits")
+        .output()
+    {
+        if let Ok(stdout) = String::from_utf8(output.stdout) {
+            if let Ok(usage) = stdout.trim().parse::<f32>() {
+                return Some(usage);
+            }
+        }
+    }
+    
     None
 }

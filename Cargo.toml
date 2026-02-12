@@ -7,6 +7,7 @@ edition = "2024"
 i18n-embed-fl = "0.10"
 rust-embed = "8.7.2"
 tokio = { version = "1.48.0", features = ["full"] }
+# Feature 'sensors' adicionada para suporte à RTX 5080
 sysinfo = { version = "0.33", features = ["network", "system", "component"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -16,7 +17,7 @@ version = "0.16"
 features = ["fluent-system", "desktop-requester"]
 
 [dependencies.libcosmic]
-git = "https://github.com/pop-os/libcosmic.git"
+git = "https://github.com/pop-os/libcosmic"
 features = [
     "applet",
     "applet-token",
