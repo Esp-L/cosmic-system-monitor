@@ -6,7 +6,32 @@ use crate::config::Config;
 use std::time::Duration;
 use cosmic::iced::time;
 use std::fs;
-use std::process::Command;
+use std::sync::LazyLock;
+
+// NVML para NVIDIA
+use nvml_wrapper::enum_wrappers::device::TemperatureSensor;
+static NVML: LazyLock<Result<nvml_wrapper::Nvml, nvml_wrapper::error::NvmlError>> = LazyLock::new(nvml_wrapper::Nvml::init);
+
+// Temperatura GPU via NVML
+fn get_nvidia_temp() -> Option<f32> {
+    if let Ok(nvml) = &*NVML {
+        // Tenta encontrar GPU NVIDIA pelo PCI slot
+        if let Some(pci_slot) = get_nvidia_pci_slot() {
+            if let Ok(device) = nvml.device_by_pci_bus_id(pci_slot.as_str()) {
+                if let Ok(temp) = device.temperature(TemperatureSensor::Gpu) {
+                    return Some(temp as f32);
+                }
+            }
+        }
+        // Fallback: primeira GPU NVIDIA disponível
+        if let Ok(device) = nvml.device_by_index(0) {
+            if let Ok(temp) = device.temperature(TemperatureSensor::Gpu) {
+                return Some(temp as f32);
+            }
+        }
+    }
+    None
+}
 
 pub struct AppModel {
     core: cosmic::Core,
@@ -90,16 +115,27 @@ impl cosmic::Application for AppModel {
 
                 for component in &self.components {
                     let label = component.label();
+                    let temp = component.temperature().unwrap_or(0.0);
+                    
                     if label == "Tctl" || label.contains("CPU") || label.contains("Package id 0") {
-                        self.cpu_temp = component.temperature().unwrap_or(0.0);
-                    } else if label == "edge" || label == "junction" || label.contains("GPU") || label.contains("amdgpu") || label.contains("nvidia") || label.contains("nvme") {
-                        if label == "edge" || self.gpu_temp == 0.0 {
-                            self.gpu_temp = component.temperature().unwrap_or(0.0);
-                        }
+                        self.cpu_temp = temp;
+                    } else if label.contains("nvidia") || label.contains("GPU") {
+                        // Prioriza sensores explicitamente NVIDIA ou GPU
+                        self.gpu_temp = temp;
+                    } else if (label == "edge" || label == "junction" || label.contains("amdgpu")) && self.gpu_temp == 0.0 {
+                        // Fallback para AMD
+                        self.gpu_temp = temp;
                     }
                 }
 
                 self.gpu_usage = read_gpu_usage().unwrap_or(0.0);
+                
+                // Tenta obter temperatura do nvidia-smi se disponível
+                if self.gpu_temp == 0.0 {
+                    if let Some(temp) = get_nvidia_temp() {
+                        self.gpu_temp = temp;
+                    }
+                }
 
                 let mut total_down = 0;
                 let mut total_up = 0;
@@ -182,30 +218,50 @@ fn format_speed(bytes: u64) -> String {
 }
 
 fn read_gpu_usage() -> Option<f32> {
-    // Tenta card0 e card1, pois sistemas com iGPU + dGPU trocam a ordem
+    // Tenta NVIDIA primeiro usando NVML
+    if let Ok(nvml) = &*NVML {
+        // Tenta encontrar GPU NVIDIA pelo PCI slot
+        if let Some(pci_slot) = get_nvidia_pci_slot() {
+            if let Ok(device) = nvml.device_by_pci_bus_id(pci_slot.as_str()) {
+                if let Ok(util) = device.utilization_rates() {
+                    return Some(u64::from(util.gpu) as f32);
+                }
+            }
+        }
+        // Fallback: primeira GPU NVIDIA disponível
+        if let Ok(device) = nvml.device_by_index(0) {
+            if let Ok(util) = device.utilization_rates() {
+                return Some(u64::from(util.gpu) as f32);
+            }
+        }
+    }
+    
+    // Fallback para AMD/outros via sysfs
     for card in 0..=1 {
         let path = format!("/sys/class/drm/card{}/device/gpu_busy_percent", card);
         if let Ok(content) = fs::read_to_string(path) {
             if let Ok(usage) = content.trim().parse::<f32>() {
-                if usage > 0.0 || card == 1 { // Se for card1 e o card0 falhou ou deu 0, tentamos retornar
+                if usage > 0.0 || card == 1 {
                      return Some(usage);
                 }
             }
         }
     }
     
-    // Fallback para NVIDIA usando nvidia-smi
-    if let Ok(output) = Command::new("nvidia-smi")
-        .arg("--query-gpu=utilization.gpu")
-        .arg("--format=csv,noheader,nounits")
-        .output()
-    {
-        if let Ok(stdout) = String::from_utf8(output.stdout) {
-            if let Ok(usage) = stdout.trim().parse::<f32>() {
-                return Some(usage);
+    None
+}
+
+fn get_nvidia_pci_slot() -> Option<String> {
+    // Lê o uevent do dispositivo DRM para obter PCI_SLOT_NAME
+    for card in 0..=1 {
+        let uevent_path = format!("/sys/class/drm/card{}/device/uevent", card);
+        if let Ok(content) = fs::read_to_string(&uevent_path) {
+            for line in content.lines() {
+                if line.starts_with("PCI_SLOT_NAME=") {
+                    return Some(line.strip_prefix("PCI_SLOT_NAME=")?.to_string());
+                }
             }
         }
     }
-    
     None
 }
