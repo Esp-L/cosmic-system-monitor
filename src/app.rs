@@ -117,15 +117,17 @@ impl cosmic::Application for AppModel {
                     let label = component.label();
                     let temp = component.temperature().unwrap_or(0.0);
                     
+                    // CPU
                     if label == "Tctl" || label.contains("CPU") || label.contains("Package id 0") {
                         self.cpu_temp = temp;
-                    } else if label.contains("nvidia") || label.contains("GPU") {
-                        // Prioriza sensores explicitamente NVIDIA ou GPU
+                    } else if label == "edge" {
+                        // Sensor principal de GPU AMD
                         self.gpu_temp = temp;
-                    } else if (label == "edge" || label == "junction" || label.contains("amdgpu")) && self.gpu_temp == 0.0 {
-                        // Fallback para AMD
+                    } else if label.contains("nvidia") {
+                        // Sensores NVIDIA
                         self.gpu_temp = temp;
                     }
+                    // Não usa mais junction, mem ou fallback para evitar sensores errados
                 }
 
                 self.gpu_usage = read_gpu_usage().unwrap_or(0.0);

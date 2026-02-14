@@ -34,4 +34,4 @@ install: build-release
     install -Dm0644 resources/icon-symbolic.svg {{icon-dst}}
 
 uninstall:
-	rm -f {{bin-dst}} {{desktop-dst}} {{icon-dst}} {{metainfo-dst}}
+    rm -f {{bin-dst}} {{desktop-dst}} {{icon-dst}} {{metainfo-dst}}
