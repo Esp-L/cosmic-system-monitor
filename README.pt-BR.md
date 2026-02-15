@@ -125,18 +125,21 @@ O applet agora deve aparecer na configuração do seu painel.
 
 ### Adicionando ao Painel
 
-1. Clique com o botão direito no painel COSMIC
-2. Selecione "Painel" → "Adicionar Applets"
-3. Procure por "System Monitor"
-4. Clique em "Adicionar"
+1. Abra as **Configurações**
+2. Navegue até **Área de Trabalho** → **Painel**
+3. Clique no botão **+** para adicionar um applet
+4. Selecione **System Monitor**
 
 
 ## Funcionalidades
 
 - 📊 **Uso de CPU** - Monitoramento de uso do processador em tempo real
-- 💾 **Uso de Memória** - RAM usada e disponível
+- 💾 **Uso de Memória** - RAM usada (porcentagem e GB)
+- 🎮 **Uso de GPU** - Uso, Temperatura e VRAM (porcentagem e GB)
+- 💿 **Uso de Disco** - Espaço em disco usado (porcentagem e GB)
 - 🌡️ **Temperatura** - Temperaturas de CPU e GPU
 - 🌐 **Rede** - Velocidades de download/upload em tempo real (B/s, KB/s, MB/s)
+- ⚙️ **Configurável** - Ative/desative métricas via menu popup
 - 🎨 **Aparência Nativa** - Integração perfeita com o COSMIC Desktop
 - ⚡ **Baixo Recurso** - Consumo mínimo de memória e CPU
 

@@ -19,6 +19,7 @@ features = ["fluent-system", "desktop-requester"]
 
 [dependencies.libcosmic]
 git = "https://github.com/pop-os/libcosmic"
+branch = "master"
 features = [
     "applet",
     "applet-token",
