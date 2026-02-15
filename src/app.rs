@@ -358,7 +358,7 @@ impl cosmic::Application for AppModel {
         let header = widget::row()
             .push(widget::text("Configurações").size(16).font(bold_font))
             .push(widget::horizontal_space())
-            .push(widget::text(format!("v{}", version)).size(12).alpha(0.7));
+            .push(widget::text(format!("v{}", version)).size(12));
         
         // Opções de toggle
         let cpu_toggle = widget::toggler(config.show_cpu).on_toggle(move |_| Message::ToggleCpu);
