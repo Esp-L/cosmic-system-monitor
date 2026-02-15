@@ -2,6 +2,7 @@
 
 <p align="center">
 <img src="resources/preview.png" width="400" alt="Preview">
+<img src="resources/popup.png" width="400" alt="Configurações Popup">
 </p>
 
 Monitor de sistema limpo e poderoso para o **COSMIC Desktop Environment**.

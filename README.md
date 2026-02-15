@@ -2,6 +2,7 @@
 
 <p align="center">
 <img src="resources/preview.png" width="400" alt="Preview">
+<img src="resources/popup.png" width="400" alt="Popup Settings">
 </p>
 
 Clean and powerful system monitor applet for the **COSMIC Desktop Environment**.
