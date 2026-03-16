@@ -357,7 +357,7 @@ impl cosmic::Application for AppModel {
         let version = env!("CARGO_PKG_VERSION");
         let header = widget::row()
             .push(widget::text("Configurações").size(16).font(bold_font))
-            .push(widget::horizontal_space())
+            .push(widget::space())
             .push(widget::text(format!("v{}", version)).size(12));
         
         // Opções de toggle
