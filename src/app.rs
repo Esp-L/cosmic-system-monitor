@@ -1,6 +1,6 @@
 use cosmic::iced::{Alignment, Task, font};
-use cosmic::iced::window::Id;
-use cosmic::iced_winit::commands::popup::{destroy_popup, get_popup};
+use cosmic::iced::window::{self, Id};
+use cosmic::iced::platform_specific::shell::wayland::commands::popup::{destroy_popup, get_popup};
 use cosmic::cosmic_config::{ConfigGet, ConfigSet};
 use cosmic::prelude::*;
 use cosmic::widget;
@@ -18,7 +18,6 @@ static NVML: LazyLock<Result<nvml_wrapper::Nvml, nvml_wrapper::error::NvmlError>
 // Temperatura GPU via NVML
 fn get_nvidia_temp() -> Option<f32> {
     if let Ok(nvml) = &*NVML {
-        // Tenta encontrar GPU NVIDIA pelo PCI slot
         if let Some(pci_slot) = get_nvidia_pci_slot() {
             if let Ok(device) = nvml.device_by_pci_bus_id(pci_slot.as_str()) {
                 if let Ok(temp) = device.temperature(TemperatureSensor::Gpu) {
@@ -26,7 +25,6 @@ fn get_nvidia_temp() -> Option<f32> {
                 }
             }
         }
-        // Fallback: primeira GPU NVIDIA disponível
         if let Ok(device) = nvml.device_by_index(0) {
             if let Ok(temp) = device.temperature(TemperatureSensor::Gpu) {
                 return Some(temp as f32);
@@ -144,28 +142,22 @@ impl cosmic::Application for AppModel {
                     let label = component.label();
                     let temp = component.temperature().unwrap_or(0.0);
                     
-                    // CPU
                     if label == "Tctl" || label.contains("CPU") || label.contains("Package id 0") {
                         self.cpu_temp = temp;
                     } else if label == "edge" {
-                        // Sensor principal de GPU AMD
                         self.gpu_temp = temp;
                     } else if label.contains("nvidia") {
-                        // Sensores NVIDIA
                         self.gpu_temp = temp;
                     }
-                    // Não usa mais junction, mem ou fallback para evitar sensores errados
                 }
 
                 self.gpu_usage = read_gpu_usage().unwrap_or(0.0);
                 
-                // Tenta obter VRAM da GPU NVIDIA
                 if let Some((used, total)) = read_gpu_vram() {
                     self.gpu_vram_used = used;
                     self.gpu_vram_total = total;
                 }
                 
-                // Tenta obter temperatura do nvidia-smi se disponível
                 if self.gpu_temp == 0.0 {
                     if let Some(temp) = get_nvidia_temp() {
                         self.gpu_temp = temp;
@@ -185,21 +177,21 @@ impl cosmic::Application for AppModel {
                 Task::none()
             }
             Message::TogglePopup => {
-                return if let Some(p) = self.popup.take() {
-                    destroy_popup(p)
+                if let Some(p) = self.popup.take() {
+                    return destroy_popup(p);
                 } else {
-                    let new_id = Id::unique();
+                    let new_id = window::Id::unique();
                     self.popup.replace(new_id);
-                    if let Some(main_id) = self.core.main_window_id() {
-                        let popup_settings = self
-                            .core
-                            .applet
-                            .get_popup_settings(main_id, new_id, None, None, None);
-                        get_popup(popup_settings)
-                    } else {
-                        Task::none()
-                    }
-                };
+
+                    let popup_settings = self.core.applet.get_popup_settings(
+                        self.core.main_window_id().unwrap(),
+                        new_id,
+                        Some((1, 1)),
+                        None,
+                        None,
+                    );
+                    return get_popup(popup_settings);
+                }
             }
             Message::PopupClosed(id) => {
                 if self.popup == Some(id) {
@@ -207,43 +199,18 @@ impl cosmic::Application for AppModel {
                 }
                 Task::none()
             }
-            Message::ToggleCpu => {
-                self.config.show_cpu = !self.config.show_cpu;
-                let _ = self.config_handler.set("config", &self.config);
-                Task::none()
-            }
-            Message::ToggleCpuTemp => {
-                self.config.show_cpu_temp = !self.config.show_cpu_temp;
-                let _ = self.config_handler.set("config", &self.config);
-                Task::none()
-            }
-            Message::ToggleRam => {
-                self.config.show_ram = !self.config.show_ram;
-                let _ = self.config_handler.set("config", &self.config);
-                Task::none()
-            }
-            Message::ToggleGpu => {
-                self.config.show_gpu = !self.config.show_gpu;
-                let _ = self.config_handler.set("config", &self.config);
-                Task::none()
-            }
-            Message::ToggleGpuTemp => {
-                self.config.show_gpu_temp = !self.config.show_gpu_temp;
-                let _ = self.config_handler.set("config", &self.config);
-                Task::none()
-            }
-            Message::ToggleGpuVram => {
-                self.config.show_gpu_vram = !self.config.show_gpu_vram;
-                let _ = self.config_handler.set("config", &self.config);
-                Task::none()
-            }
-            Message::ToggleDisk => {
-                self.config.show_disk = !self.config.show_disk;
-                let _ = self.config_handler.set("config", &self.config);
-                Task::none()
-            }
-            Message::ToggleNet => {
-                self.config.show_net = !self.config.show_net;
+            Message::ToggleCpu | Message::ToggleCpuTemp | Message::ToggleRam | Message::ToggleGpu | Message::ToggleGpuTemp | Message::ToggleGpuVram | Message::ToggleDisk | Message::ToggleNet => {
+                match message {
+                    Message::ToggleCpu => self.config.show_cpu = !self.config.show_cpu,
+                    Message::ToggleCpuTemp => self.config.show_cpu_temp = !self.config.show_cpu_temp,
+                    Message::ToggleRam => self.config.show_ram = !self.config.show_ram,
+                    Message::ToggleGpu => self.config.show_gpu = !self.config.show_gpu,
+                    Message::ToggleGpuTemp => self.config.show_gpu_temp = !self.config.show_gpu_temp,
+                    Message::ToggleGpuVram => self.config.show_gpu_vram = !self.config.show_gpu_vram,
+                    Message::ToggleDisk => self.config.show_disk = !self.config.show_disk,
+                    Message::ToggleNet => self.config.show_net = !self.config.show_net,
+                    _ => {}
+                }
                 let _ = self.config_handler.set("config", &self.config);
                 Task::none()
             }
@@ -251,102 +218,108 @@ impl cosmic::Application for AppModel {
     }
 
     fn view(&self) -> Element<'_, Self::Message> {
-        let text_size = 13;
+        let text_size = 12;
         let bold_font = font::Font { weight: font::Weight::Bold, ..Default::default() };
         let config = &self.config;
         
-        // Build content based on config
-        let mut content = widget::row().spacing(12).align_y(Alignment::Center);
+        let mut row_children: Vec<Element<'_, Message>> = Vec::new();
         
-        // CPU
         if config.show_cpu {
             let cpu_info = if config.show_cpu_temp {
-                format!("{:.0}% | {:.0}°C", self.cpu_usage, self.cpu_temp)
+                format!("{:.0}%|{:.0}°C", self.cpu_usage, self.cpu_temp)
             } else {
                 format!("{:.0}%", self.cpu_usage)
             };
-            content = content
-                .push(widget::row().spacing(4).align_y(Alignment::Center)
-                    .push(widget::text("CPU").size(text_size).font(bold_font))
-                    .push(widget::text(cpu_info).size(text_size)))
-                .push(widget::text("│").size(text_size));
+            row_children.push(
+                widget::row(vec![
+                    widget::text("CPU ").size(text_size).font(bold_font).into(),
+                    widget::text(cpu_info).size(text_size).into(),
+                ]).spacing(0).align_y(Alignment::Center).into()
+            );
+            row_children.push(widget::text(" | ").size(text_size).into());
         }
         
-        // RAM
         if config.show_ram {
             let ram_info = if self.system.total_memory() > 0 {
                 let used_gb = self.system.used_memory() as f64 / 1024.0 / 1024.0;
                 let total_gb = self.system.total_memory() as f64 / 1024.0 / 1024.0;
-                format!("{:.0}% | {:.1} / {:.1} GB", self.ram_usage, used_gb, total_gb)
+                format!("{:.0}% | {:.1}/{:.1} GB", self.ram_usage, used_gb, total_gb)
             } else {
                 format!("{:.0}%", self.ram_usage)
             };
-            content = content
-                .push(widget::row().spacing(4).align_y(Alignment::Center)
-                    .push(widget::text("RAM").size(text_size).font(bold_font))
-                    .push(widget::text(ram_info).size(text_size)))
-                .push(widget::text("│").size(text_size));
+            row_children.push(
+                widget::row(vec![
+                    widget::text("Ram ").size(text_size).font(bold_font).into(),
+                    widget::text(ram_info).size(text_size).into(),
+                ]).spacing(0).align_y(Alignment::Center).into()
+            );
+            row_children.push(widget::text(" | ").size(text_size).into());
         }
         
-        // GPU
         if config.show_gpu {
-            let gpu_info = if self.gpu_usage > 0.0 || self.gpu_temp > 0.0 {
+            let gpu_info = if self.gpu_usage > 0.0 || self.cpu_temp > 0.0 {
                 let mut info = format!("{:.0}%", self.gpu_usage);
-                if config.show_gpu_temp {
-                    info = format!("{} | {:.0}°C", info, self.gpu_temp);
+                if config.show_gpu_temp && self.gpu_temp > 0.0 {
+                    info = format!("{} |{:.0}°C", info, self.gpu_temp);
                 }
                 if config.show_gpu_vram && self.gpu_vram_total > 0 {
-                    info = format!("{} | {} / {} GB", info, self.gpu_vram_used / 1024 / 1024, self.gpu_vram_total / 1024 / 1024);
+                    let used = self.gpu_vram_used / 1024 / 1024;
+                    let total = self.gpu_vram_total / 1024 / 1024;
+                    info = format!("{}|{}/{}GB", info, used, total);
                 }
                 info
             } else {
-                "N/A".to_string()
+                format!("{:.0}%", self.gpu_usage)
             };
-            content = content
-                .push(widget::row().spacing(4).align_y(Alignment::Center)
-                    .push(widget::text("GPU").size(text_size).font(bold_font))
-                    .push(widget::text(gpu_info).size(text_size)))
-                .push(widget::text("│").size(text_size));
+            row_children.push(
+                widget::row(vec![
+                    widget::text("GPU ").size(text_size).font(bold_font).into(),
+                    widget::text(gpu_info).size(text_size).into(),
+                ]).spacing(0).align_y(Alignment::Center).into()
+            );
+            row_children.push(widget::text(" | ").size(text_size).into());
         }
         
-        // DISK
         if config.show_disk {
             let disk_info = {
                 let mut disk_str = String::new();
-                for disk in &self.disks {
-                    let mount = disk.mount_point().to_string_lossy().to_string();
+                for d in &self.disks {
+                    let mount = d.mount_point().to_string_lossy().to_string();
                     if mount == "/" || mount.starts_with("/home") {
-                        let total = disk.total_space() / 1024 / 1024 / 1024;
-                        let available = disk.available_space() / 1024 / 1024 / 1024;
+                        let total = d.total_space() / 1024 / 1024 / 1024;
+                        let available = d.available_space() / 1024 / 1024 / 1024;
                         let used = total - available;
                         let usage = if total > 0 { (used as f32 / total as f32) * 100.0 } else { 0.0 };
-                        disk_str = format!("{:.0}% | {} / {} GB", usage, used, total);
+                        disk_str = format!("{:.0}%| {}/{} GB", usage, used, total);
                         break;
                     }
                 }
                 if disk_str.is_empty() { "N/A".to_string() } else { disk_str }
             };
-            content = content
-                .push(widget::row().spacing(4).align_y(Alignment::Center)
-                    .push(widget::text("DISK").size(text_size).font(bold_font))
-                    .push(widget::text(disk_info).size(text_size)))
-                .push(widget::text("│").size(text_size));
+            row_children.push(
+                widget::row(vec![
+                    widget::text("DISK ").size(text_size).font(bold_font).into(),
+                    widget::text(disk_info).size(text_size).into(),
+                ]).spacing(0).align_y(Alignment::Center).into()
+            );
+            row_children.push(widget::text(" | ").size(text_size).into());
         }
         
-        // NET
         if config.show_net {
             let net_info = format!("↓{} ↑{}", self.download_speed, self.upload_speed);
-            content = content
-                .push(widget::row().spacing(4).align_y(Alignment::Center)
-                    .push(widget::text("NET").size(text_size).font(bold_font))
-                    .push(widget::text(net_info).size(text_size)));
+            row_children.push(
+                widget::row(vec![
+                    widget::text("NET ").size(text_size).font(bold_font).into(),
+                    widget::text(net_info).size(text_size).into(),
+                ]).spacing(0).align_y(Alignment::Center).into()
+            );
         }
-
-        // Botão principal que abre o popup ao ser clicado
+        
+        let content = widget::row(row_children).spacing(0).align_y(Alignment::Center);
         let main_btn = widget::button::custom(content)
             .on_press(Message::TogglePopup)
             .class(cosmic::theme::Button::AppletIcon);
-
+        
         widget::autosize::autosize(main_btn, widget::Id::unique()).into()
     }
 
@@ -354,51 +327,70 @@ impl cosmic::Application for AppModel {
         let config = &self.config;
         let bold_font = font::Font { weight: font::Weight::Bold, ..Default::default() };
         
-        let version = env!("CARGO_PKG_VERSION");
-        let header = widget::row()
-            .push(widget::text("Configurações").size(16).font(bold_font))
-            .push(widget::space())
-            .push(widget::text(format!("v{}", version)).size(12));
+        let header = widget::row(vec![
+            widget::text("Configurações").size(16).font(bold_font).into(),
+            widget::space().into(),
+        ]);
         
-        // Opções de toggle
-        let cpu_toggle = widget::toggler(config.show_cpu).on_toggle(move |_| Message::ToggleCpu);
-        let cpu_row = widget::row().spacing(8).push(widget::text("CPU").size(13)).push(cpu_toggle);
+        let cpu_row = widget::row(vec![
+            widget::text("CPU").size(13).into(),
+            widget::toggler(config.show_cpu).on_toggle(move |_| Message::ToggleCpu).into(),
+        ]).spacing(8);
         
-        let cpu_temp_toggle = widget::toggler(config.show_cpu_temp).on_toggle(move |_| Message::ToggleCpuTemp);
-        let cpu_temp_row = widget::row().spacing(8).push(widget::text("  CPU Temp").size(13)).push(cpu_temp_toggle);
+        let cpu_temp_row = widget::row(vec![
+            widget::text("  CPU Temp").size(13).into(),
+            widget::toggler(config.show_cpu_temp).on_toggle(move |_| Message::ToggleCpuTemp).into(),
+        ]).spacing(8);
         
-        let ram_toggle = widget::toggler(config.show_ram).on_toggle(move |_| Message::ToggleRam);
-        let ram_row = widget::row().spacing(8).push(widget::text("RAM").size(13)).push(ram_toggle);
+        let ram_row = widget::row(vec![
+            widget::text("RAM").size(13).into(),
+            widget::toggler(config.show_ram).on_toggle(move |_| Message::ToggleRam).into(),
+        ]).spacing(8);
         
-        let gpu_toggle = widget::toggler(config.show_gpu).on_toggle(move |_| Message::ToggleGpu);
-        let gpu_row = widget::row().spacing(8).push(widget::text("GPU").size(13)).push(gpu_toggle);
+        let gpu_row = widget::row(vec![
+            widget::text("GPU").size(13).into(),
+            widget::toggler(config.show_gpu).on_toggle(move |_| Message::ToggleGpu).into(),
+        ]).spacing(8);
         
-        let gpu_temp_toggle = widget::toggler(config.show_gpu_temp).on_toggle(move |_| Message::ToggleGpuTemp);
-        let gpu_temp_row = widget::row().spacing(8).push(widget::text("  GPU Temp").size(13)).push(gpu_temp_toggle);
+        let gpu_temp_row = widget::row(vec![
+            widget::text("  GPU Temp").size(13).into(),
+            widget::toggler(config.show_gpu_temp).on_toggle(move |_| Message::ToggleGpuTemp).into(),
+        ]).spacing(8);
         
-        let gpu_vram_toggle = widget::toggler(config.show_gpu_vram).on_toggle(move |_| Message::ToggleGpuVram);
-        let gpu_vram_row = widget::row().spacing(8).push(widget::text("  GPU VRAM").size(13)).push(gpu_vram_toggle);
+        let gpu_vram_row = widget::row(vec![
+            widget::text("  GPU VRAM").size(13).into(),
+            widget::toggler(config.show_gpu_vram).on_toggle(move |_| Message::ToggleGpuVram).into(),
+        ]).spacing(8);
         
-        let disk_toggle = widget::toggler(config.show_disk).on_toggle(move |_| Message::ToggleDisk);
-        let disk_row = widget::row().spacing(8).push(widget::text("Disk").size(13)).push(disk_toggle);
+        let disk_row = widget::row(vec![
+            widget::text("Disk").size(13).into(),
+            widget::toggler(config.show_disk).on_toggle(move |_| Message::ToggleDisk).into(),
+        ]).spacing(8);
         
-        let net_toggle = widget::toggler(config.show_net).on_toggle(move |_| Message::ToggleNet);
-        let net_row = widget::row().spacing(8).push(widget::text("Net").size(13)).push(net_toggle);
+        let net_row = widget::row(vec![
+            widget::text("Net").size(13).into(),
+            widget::toggler(config.show_net).on_toggle(move |_| Message::ToggleNet).into(),
+        ]).spacing(8);
         
-        let content = widget::column()
+        let content = widget::column(vec![
+            header.into(),
+            cpu_row.into(),
+            cpu_temp_row.into(),
+            ram_row.into(),
+            gpu_row.into(),
+            gpu_temp_row.into(),
+            gpu_vram_row.into(),
+            disk_row.into(),
+            net_row.into(),
+        ])
             .spacing(12)
-            .padding(16)
-            .push(header)
-            .push(cpu_row)
-            .push(cpu_temp_row)
-            .push(ram_row)
-            .push(gpu_row)
-            .push(gpu_temp_row)
-            .push(gpu_vram_row)
-            .push(disk_row)
-            .push(net_row);
-
+            .padding(16);
+        
         self.core.applet.popup_container(content).into()
+    }
+
+    fn style(&self) -> Option<cosmic::iced::theme::Style> {
+        Some(cosmic::applet::style())
     }
 }
 
@@ -413,9 +405,7 @@ fn format_speed(bytes: u64) -> String {
 }
 
 fn read_gpu_usage() -> Option<f32> {
-    // Tenta NVIDIA primeiro usando NVML
     if let Ok(nvml) = &*NVML {
-        // Tenta encontrar GPU NVIDIA pelo PCI slot
         if let Some(pci_slot) = get_nvidia_pci_slot() {
             if let Ok(device) = nvml.device_by_pci_bus_id(pci_slot.as_str()) {
                 if let Ok(util) = device.utilization_rates() {
@@ -423,7 +413,6 @@ fn read_gpu_usage() -> Option<f32> {
                 }
             }
         }
-        // Fallback: primeira GPU NVIDIA disponível
         if let Ok(device) = nvml.device_by_index(0) {
             if let Ok(util) = device.utilization_rates() {
                 return Some(u64::from(util.gpu) as f32);
@@ -431,14 +420,11 @@ fn read_gpu_usage() -> Option<f32> {
         }
     }
     
-    // Fallback para AMD/outros via sysfs
     for card in 0..=1 {
         let path = format!("/sys/class/drm/card{}/device/gpu_busy_percent", card);
         if let Ok(content) = fs::read_to_string(path) {
             if let Ok(usage) = content.trim().parse::<f32>() {
-                if usage > 0.0 || card == 1 {
-                     return Some(usage);
-                }
+                return Some(usage);
             }
         }
     }
@@ -447,9 +433,7 @@ fn read_gpu_usage() -> Option<f32> {
 }
 
 fn read_gpu_vram() -> Option<(u64, u64)> {
-    // Tenta NVIDIA usando NVML
     if let Ok(nvml) = &*NVML {
-        // Tenta encontrar GPU NVIDIA pelo PCI slot
         if let Some(pci_slot) = get_nvidia_pci_slot() {
             if let Ok(device) = nvml.device_by_pci_bus_id(pci_slot.as_str()) {
                 if let Ok(mem) = device.memory_info() {
@@ -457,7 +441,6 @@ fn read_gpu_vram() -> Option<(u64, u64)> {
                 }
             }
         }
-        // Fallback: primeira GPU NVIDIA disponível
         if let Ok(device) = nvml.device_by_index(0) {
             if let Ok(mem) = device.memory_info() {
                 return Some((mem.used, mem.total));
@@ -465,7 +448,6 @@ fn read_gpu_vram() -> Option<(u64, u64)> {
         }
     }
     
-    // Fallback para AMD via sysfs
     for card in 0..=1 {
         let used_path = format!("/sys/class/drm/card{}/device/mem_info_vram_used", card);
         let total_path = format!("/sys/class/drm/card{}/device/mem_info_vram_total", card);
@@ -483,7 +465,6 @@ fn read_gpu_vram() -> Option<(u64, u64)> {
 }
 
 fn get_nvidia_pci_slot() -> Option<String> {
-    // Lê o uevent do dispositivo DRM para obter PCI_SLOT_NAME
     for card in 0..=1 {
         let uevent_path = format!("/sys/class/drm/card{}/device/uevent", card);
         if let Ok(content) = fs::read_to_string(&uevent_path) {

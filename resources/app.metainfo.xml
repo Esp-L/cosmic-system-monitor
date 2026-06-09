@@ -8,6 +8,7 @@
   <summary>Clean Resource Monitor for COSMIC</summary>
   <icon type="stock">io.github.marcos.SysMonitor-symbolic</icon>
   <provides>
+    <id>com.system76.CosmicApplet</id>
     <id>io.github.marcos.SysMonitor</id>
     <binaries>
       <binary>cosmic-sys-monitor</binary>
