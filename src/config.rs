@@ -9,6 +9,7 @@ pub struct Config {
     pub show_gpu: bool,
     pub show_gpu_temp: bool,
     pub show_gpu_vram: bool,
+    pub show_ram_gb: bool,
     pub show_disk: bool,
     pub show_net: bool,
 }
@@ -23,6 +24,7 @@ impl Default for Config {
             show_gpu: true,
             show_gpu_temp: false,
             show_gpu_vram: false,
+            show_ram_gb: false,
             show_disk: true,
             show_net: true,
         }

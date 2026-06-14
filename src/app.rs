@@ -66,6 +66,7 @@ pub enum Message {
     ToggleGpu,
     ToggleGpuTemp,
     ToggleGpuVram,
+    ToggleRamGb,
     ToggleDisk,
     ToggleNet,
 }
@@ -199,11 +200,12 @@ impl cosmic::Application for AppModel {
                 }
                 Task::none()
             }
-            Message::ToggleCpu | Message::ToggleCpuTemp | Message::ToggleRam | Message::ToggleGpu | Message::ToggleGpuTemp | Message::ToggleGpuVram | Message::ToggleDisk | Message::ToggleNet => {
+            Message::ToggleCpu | Message::ToggleCpuTemp | Message::ToggleRam | Message::ToggleRamGb | Message::ToggleGpu | Message::ToggleGpuTemp | Message::ToggleGpuVram | Message::ToggleDisk | Message::ToggleNet => {
                 match message {
                     Message::ToggleCpu => self.config.show_cpu = !self.config.show_cpu,
                     Message::ToggleCpuTemp => self.config.show_cpu_temp = !self.config.show_cpu_temp,
                     Message::ToggleRam => self.config.show_ram = !self.config.show_ram,
+                    Message::ToggleRamGb => self.config.show_ram_gb = !self.config.show_ram_gb,
                     Message::ToggleGpu => self.config.show_gpu = !self.config.show_gpu,
                     Message::ToggleGpuTemp => self.config.show_gpu_temp = !self.config.show_gpu_temp,
                     Message::ToggleGpuVram => self.config.show_gpu_vram = !self.config.show_gpu_vram,
@@ -241,9 +243,13 @@ impl cosmic::Application for AppModel {
         
         if config.show_ram {
             let ram_info = if self.system.total_memory() > 0 {
-                let used_gb = self.system.used_memory() as f64 / 1024.0 / 1024.0;
-                let total_gb = self.system.total_memory() as f64 / 1024.0 / 1024.0;
-                format!("{:.0}% | {:.1}/{:.1} GB", self.ram_usage, used_gb, total_gb)
+                if config.show_ram_gb {
+                    let used_gb = self.system.used_memory() as f64 / 1024.0 / 1024.0 / 1024.0;
+                    let total_gb = self.system.total_memory() as f64 / 1024.0 / 1024.0 / 1024.0;
+                    format!("{:.0}% | {:.1}/{:.1} GB", self.ram_usage, used_gb, total_gb)
+                } else {
+                    format!("{:.0}%", self.ram_usage)
+                }
             } else {
                 format!("{:.0}%", self.ram_usage)
             };
@@ -328,7 +334,7 @@ impl cosmic::Application for AppModel {
         let bold_font = font::Font { weight: font::Weight::Bold, ..Default::default() };
         
         let header = widget::row(vec![
-            widget::text("Configurações").size(16).font(bold_font).into(),
+            widget::text("Settings").size(16).font(bold_font).into(),
             widget::space().into(),
         ]);
         
@@ -347,6 +353,11 @@ impl cosmic::Application for AppModel {
             widget::toggler(config.show_ram).on_toggle(move |_| Message::ToggleRam).into(),
         ]).spacing(8);
         
+        let ram_gb_row = widget::row(vec![
+            widget::text("  RAM GB").size(13).into(),
+            widget::toggler(config.show_ram_gb).on_toggle(move |_| Message::ToggleRamGb).into(),
+        ]).spacing(8);
+
         let gpu_row = widget::row(vec![
             widget::text("GPU").size(13).into(),
             widget::toggler(config.show_gpu).on_toggle(move |_| Message::ToggleGpu).into(),
@@ -377,6 +388,7 @@ impl cosmic::Application for AppModel {
             cpu_row.into(),
             cpu_temp_row.into(),
             ram_row.into(),
+            ram_gb_row.into(),
             gpu_row.into(),
             gpu_temp_row.into(),
             gpu_vram_row.into(),
