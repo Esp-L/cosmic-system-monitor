@@ -6,6 +6,15 @@
 
 Clean and powerful system monitor applet for the **COSMIC Desktop Environment**.
 
+## Fork Changes
+
+This is a fork of [marcossl10/cosmic-system-monitor](https://github.com/marcossl10/cosmic-system-monitor) with the following changes:
+
+- Fixed RAM display showing MB values labelled as GB
+- RAM panel display now shows percentage only by default
+- Added toggle in settings popup to optionally show RAM usage in GB
+- Fixed settings popup title showing in Portuguese instead of English
+
 ## What is COSMIC System Monitor?
 
 A lightweight system monitoring applet that integrates seamlessly with COSMIC Desktop, showing real-time system metrics in the panel. Perfect for users who want to keep track of their system performance without cluttering their desktop.
