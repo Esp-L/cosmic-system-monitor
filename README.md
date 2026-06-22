@@ -11,13 +11,39 @@ Clean and powerful system monitor applet for the **COSMIC Desktop Environment**.
 This is a fork of [marcossl10/cosmic-system-monitor](https://github.com/marcossl10/cosmic-system-monitor) with the following changes:
 
 - Fixed RAM display showing MB values labelled as GB
-- RAM panel display now shows percentage only by default
-- Added toggle in settings popup to optionally show RAM usage in GB
 - Fixed settings popup title showing in Portuguese instead of English
+- Reworked settings into per-metric sections with independent toggles
+- Metrics with no toggles enabled are hidden entirely from the panel
+- Fixed trailing/leading pipe separators (pipes only appear between visible metrics)
+- Added left-click to launch a configurable system monitor application
+- Added right-click to open the settings popup
+- Added NET total transferred (session totals alongside live speed)
+- GPU now has three independent toggles: percentage, temperature, VRAM
 
 ## What is COSMIC System Monitor?
 
 A lightweight system monitoring applet that integrates seamlessly with COSMIC Desktop, showing real-time system metrics in the panel. Perfect for users who want to keep track of their system performance without cluttering their desktop.
+
+## Usage
+
+### Panel interaction
+
+- **Left-click** the applet to open your system monitor application (configurable in settings)
+- **Right-click** the applet to open the settings popup
+
+### Settings
+
+Each metric has its own section with independent toggles. A metric is only shown in the panel if at least one of its toggles is enabled.
+
+| Metric | Toggle 1 | Toggle 2 | Toggle 3 |
+|--------|----------|----------|----------|
+| CPU | Percentage | Temperature | |
+| RAM | Percentage | Used / Total | |
+| GPU | Percentage | Temperature | VRAM |
+| Disk | Percentage | Used / Total | |
+| Network | Speed (live ↑↓) | Total transferred (↑↓) | |
+
+The **Behavior** section lets you set which application to launch on left-click (e.g. `gnome-system-monitor`, `cosmic-task-manager`, `btop`).
 
 ## Supported Distributions
 
@@ -26,15 +52,13 @@ A lightweight system monitoring applet that integrates seamlessly with COSMIC De
 | Pop!_OS 22.04+ | ok |
 | Ubuntu 22.04+ | ok |
 | Fedora 38+ | ok |
-| Arch Linux | ok | 
+| Arch Linux | ok |
 
-> **Note**: This applet is designed specifically for COSMIC Desktop. 
+> **Note**: This applet is designed specifically for COSMIC Desktop.
 
 ## Prerequisites
 
 ### Rust Toolchain
-
-This project uses Rust, so you'll need the Rust toolchain which includes `cargo`.
 
 **Debian/Ubuntu:**
 ```bash
@@ -51,7 +75,7 @@ sudo dnf install rust cargo
 sudo pacman -S rust cargo
 ```
 
-### 2. Just (Command Runner)
+### Just (Command Runner)
 
 **Debian/Ubuntu:**
 ```bash
@@ -68,7 +92,7 @@ sudo dnf install just
 sudo pacman -S just
 ```
 
-### 3. System Development Libraries
+### System Development Libraries
 
 **Debian/Ubuntu:**
 ```bash
@@ -86,9 +110,7 @@ sudo dnf install lm_sensors-devel gtk3-devel dbus-devel pkg-config
 sudo pacman -S base-devel lm_sensors gtk3 dbus pkgconf
 ```
 
-### 4. COSMIC Dependencies
-
-Since this applet uses `libcosmic`, you may need additional dependencies:
+### COSMIC Dependencies
 
 **Pop!_OS:**
 ```bash
@@ -103,52 +125,52 @@ You may need to build `libcosmic` from source. Check the [libcosmic repository](
 ### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/marcossl10/cosmic-system-monitor.git
+git clone https://github.com/Esp-L/cosmic-system-monitor.git
 cd cosmic-system-monitor
 ```
 
-### Step 2: Build and Install
+### Step 2: Build
+
+```bash
+cargo build --release
+```
+
+### Step 3: Install the binary
+
+```bash
+sudo cp target/release/cosmic-sys-monitor /usr/local/bin/
+```
+
+### Step 4: Install desktop entry and icons
 
 ```bash
 sudo just install
 ```
 
-This will:
-- Build the application in release mode
-- Install the binary to `/usr/bin/cosmic-sys-monitor`
-- Install desktop entry to `/usr/share/applications/`
-- Install app icon to `/usr/share/icons/hicolor/symbolic/apps/`
-- Install metainfo to `/usr/share/metainfo/`
-
-### Step 3: Restart COSMIC Panel
-
-Log out and log back in, or restart the COSMIC panel:
+### Step 5: Restart COSMIC Panel
 
 ```bash
-killall -9 cosmic-panel
+killall cosmic-panel
 ```
 
-The applet should now appear in your panel configuration.
+The session manager will relaunch the panel automatically. The applet should now appear in your panel configuration.
 
-## Usage
-
-### Adding to Panel
+## Adding to Panel
 
 1. Open **Settings**
 2. Navigate to **Desktop** → **Panel**
 3. Click the **+** button to add an applet
 4. Select **System Monitor**
 
-
 ## Features
 
-- 📊 **CPU Usage** - Real-time processor usage monitoring
-- 💾 **Memory Usage** - RAM usage (percentage and GB)
-- 🎮 **GPU Usage** - Usage, Temperature and VRAM (percentage and GB)
-- 💿 **Disk Usage** - Disk space usage (percentage and GB)
-- 🌡️ **Temperature** - CPU and GPU temperatures
-- 🌐 **Network** - Real-time download/upload speeds (B/s, KB/s, MB/s)
-- ⚙️ **Configurable** - Toggle metrics on/off via popup menu
+- 📊 **CPU** - Percentage and temperature
+- 💾 **RAM** - Percentage and used/total GB
+- 🎮 **GPU** - Percentage, temperature, and VRAM (NVIDIA via NVML, AMD via sysfs)
+- 💿 **Disk** - Percentage and used/total GB
+- 🌐 **Network** - Live upload/download speed and session totals
+- ⚙️ **Per-metric toggles** - Each stat is independently toggleable; metrics with nothing enabled are hidden
+- 🖱️ **Click actions** - Left-click opens your system monitor, right-click opens settings
 - 🎨 **Native Look** - Seamless COSMIC Desktop integration
 - ⚡ **Low Resource** - Minimal memory and CPU footprint
 
@@ -156,43 +178,20 @@ The applet should now appear in your panel configuration.
 
 ### Applet Not Appearing
 
-1. Verify installation: `ls -la /usr/bin/cosmic-sys-monitor`
-2. Check logs: `journalctl -u cosmic-sys-monitor` (if running as service)
-3. Try running manually: `cosmic-sys-monitor`
+1. Verify installation: `ls -la /usr/local/bin/cosmic-sys-monitor`
+2. Try running manually: `cosmic-sys-monitor`
 
 ### Build Fails
 
 1. Ensure all dependencies are installed
 2. Update Rust: `rustup update`
-3. Clean build: `just clean && cargo build --release`
+3. Clean build: `cargo clean && cargo build --release`
 
 ### Sensors Not Detected
 
 ```bash
 sudo sensors-detect
 sudo systemctl enable --now lm_sensors
-```
-
-## Building from Source
-
-### Debug Build
-```bash
-just build-debug
-```
-
-### Release Build
-```bash
-just build-release
-```
-
-### Run Without Installing
-```bash
-just run
-```
-
-### Check Code Quality
-```bash
-just check
 ```
 
 ## Uninstallation
@@ -207,5 +206,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
+- [marcossl10/cosmic-system-monitor](https://github.com/marcossl10/cosmic-system-monitor) - Original project
 - [pop-os/libcosmic](https://github.com/pop-os/libcosmic) - COSMIC Desktop library
 - [sysinfo](https://github.com/GuillaumeGomez/sysinfo) - System information library
