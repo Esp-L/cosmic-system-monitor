@@ -141,13 +141,7 @@ cargo build --release
 sudo cp target/release/cosmic-sys-monitor /usr/local/bin/
 ```
 
-### Step 4: Install desktop entry and icons
-
-```bash
-sudo just install
-```
-
-### Step 5: Restart COSMIC Panel
+### Step 4: Restart COSMIC Panel
 
 ```bash
 killall cosmic-panel

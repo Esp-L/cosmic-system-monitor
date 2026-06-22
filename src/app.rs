@@ -53,6 +53,8 @@ pub struct AppModel {
     upload_speed: String,
     net_total_down: u64,
     net_total_up: u64,
+    autosize_id: widget::Id,
+    tick_count: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -120,6 +122,8 @@ impl cosmic::Application for AppModel {
             upload_speed: "0 B/s".to_string(),
             net_total_down: 0,
             net_total_up: 0,
+            autosize_id: widget::Id::unique(),
+            tick_count: 0,
         };
 
         (app, Task::none())
@@ -136,49 +140,66 @@ impl cosmic::Application for AppModel {
     fn update(&mut self, message: Self::Message) -> Task<cosmic::Action<Self::Message>> {
         match message {
             Message::Tick => {
+                self.tick_count += 1;
+                let c = &self.config;
+
+                // CPU and RAM every tick
                 self.system.refresh_cpu_all();
                 self.system.refresh_memory();
-                self.networks.refresh(true);
-                self.components.refresh(true);
-                self.disks.refresh(true);
-
                 self.cpu_usage = self.system.global_cpu_usage();
                 self.ram_usage = (self.system.used_memory() as f32 / self.system.total_memory() as f32) * 100.0;
 
-                for component in &self.components {
-                    let label = component.label();
-                    let temp = component.temperature().unwrap_or(0.0);
-                    if label == "Tctl" || label.contains("CPU") || label.contains("Package id 0") {
-                        self.cpu_temp = temp;
-                    } else if label == "edge" || label.contains("nvidia") {
-                        self.gpu_temp = temp;
+                // Temperatures every 2 ticks
+                if self.tick_count % 2 == 0 && (c.show_cpu_temp || c.show_gpu_temp) {
+                    self.components.refresh(true);
+                    for component in &self.components {
+                        let label = component.label();
+                        let temp = component.temperature().unwrap_or(0.0);
+                        if c.show_cpu_temp && (label == "Tctl" || label.contains("CPU") || label.contains("Package id 0")) {
+                            self.cpu_temp = temp;
+                        } else if c.show_gpu_temp && (label == "edge" || label.contains("nvidia")) {
+                            self.gpu_temp = temp;
+                        }
                     }
                 }
 
-                self.gpu_usage = read_gpu_usage().unwrap_or(0.0);
-
-                if let Some((used, total)) = read_gpu_vram() {
-                    self.gpu_vram_used = used;
-                    self.gpu_vram_total = total;
-                }
-
-                if self.gpu_temp == 0.0 {
-                    if let Some(temp) = get_nvidia_temp() {
-                        self.gpu_temp = temp;
+                // GPU only if any GPU toggle is on
+                if c.show_gpu_pct || c.show_gpu_temp || c.show_gpu_vram {
+                    if c.show_gpu_pct {
+                        self.gpu_usage = read_gpu_usage().unwrap_or(0.0);
+                    }
+                    if c.show_gpu_vram {
+                        if let Some((used, total)) = read_gpu_vram() {
+                            self.gpu_vram_used = used;
+                            self.gpu_vram_total = total;
+                        }
+                    }
+                    if c.show_gpu_temp && self.gpu_temp == 0.0 {
+                        if let Some(temp) = get_nvidia_temp() {
+                            self.gpu_temp = temp;
+                        }
                     }
                 }
 
-                let mut total_down = 0u64;
-                let mut total_up = 0u64;
-                for (_, data) in &self.networks {
-                    total_down += data.received();
-                    total_up += data.transmitted();
+                // Network only if needed
+                if c.show_net_speed || c.show_net_total {
+                    self.networks.refresh(true);
+                    let mut total_down = 0u64;
+                    let mut total_up = 0u64;
+                    for (_, data) in &self.networks {
+                        total_down += data.received();
+                        total_up += data.transmitted();
+                    }
+                    self.download_speed = format_speed(total_down);
+                    self.upload_speed = format_speed(total_up);
+                    self.net_total_down += total_down;
+                    self.net_total_up += total_up;
                 }
 
-                self.download_speed = format_speed(total_down);
-                self.upload_speed = format_speed(total_up);
-                self.net_total_down += total_down;
-                self.net_total_up += total_up;
+                // Disk every 10 ticks
+                if self.tick_count % 10 == 0 && (c.show_disk_pct || c.show_disk_used) {
+                    self.disks.refresh(true);
+                }
 
                 Task::none()
             }
@@ -238,8 +259,7 @@ impl cosmic::Application for AppModel {
         let mut segments: Vec<Element<'_, Message>> = Vec::new();
 
         // CPU
-        let cpu_on = config.show_cpu_pct || config.show_cpu_temp;
-        if cpu_on {
+        if config.show_cpu_pct || config.show_cpu_temp {
             let mut parts: Vec<String> = Vec::new();
             if config.show_cpu_pct { parts.push(format!("{:.0}%", self.cpu_usage)); }
             if config.show_cpu_temp { parts.push(format!("{:.0}°C", self.cpu_temp)); }
@@ -247,8 +267,7 @@ impl cosmic::Application for AppModel {
         }
 
         // RAM
-        let ram_on = config.show_ram_pct || config.show_ram_used;
-        if ram_on {
+        if config.show_ram_pct || config.show_ram_used {
             let mut parts: Vec<String> = Vec::new();
             if config.show_ram_pct { parts.push(format!("{:.0}%", self.ram_usage)); }
             if config.show_ram_used {
@@ -260,8 +279,7 @@ impl cosmic::Application for AppModel {
         }
 
         // GPU
-        let gpu_on = config.show_gpu_pct || config.show_gpu_temp || config.show_gpu_vram;
-        if gpu_on {
+        if config.show_gpu_pct || config.show_gpu_temp || config.show_gpu_vram {
             let mut parts: Vec<String> = Vec::new();
             if config.show_gpu_pct { parts.push(format!("{:.0}%", self.gpu_usage)); }
             if config.show_gpu_temp && self.gpu_temp > 0.0 { parts.push(format!("{:.0}°C", self.gpu_temp)); }
@@ -274,8 +292,7 @@ impl cosmic::Application for AppModel {
         }
 
         // DISK
-        let disk_on = config.show_disk_pct || config.show_disk_used;
-        if disk_on {
+        if config.show_disk_pct || config.show_disk_used {
             let mut parts: Vec<String> = Vec::new();
             for d in &self.disks {
                 let mount = d.mount_point().to_string_lossy().to_string();
@@ -294,8 +311,7 @@ impl cosmic::Application for AppModel {
         }
 
         // NET
-        let net_on = config.show_net_speed || config.show_net_total;
-        if net_on {
+        if config.show_net_speed || config.show_net_total {
             let mut parts: Vec<String> = Vec::new();
             if config.show_net_speed {
                 parts.push(format!("↓{} ↑{}", self.download_speed, self.upload_speed));
@@ -320,7 +336,7 @@ impl cosmic::Application for AppModel {
         let click_area = widget::mouse_area(main_btn)
             .on_right_press(Message::TogglePopup);
 
-        widget::autosize::autosize(click_area, widget::Id::unique()).into()
+        widget::autosize::autosize(click_area, self.autosize_id.clone()).into()
     }
 
     fn view_window(&self, _id: Id) -> Element<'_, Self::Message> {

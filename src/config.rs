@@ -20,7 +20,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            update_interval_ms: 1000,
+            update_interval_ms: 2000,
             show_cpu_pct: true,
             show_cpu_temp: true,
             show_ram_pct: true,
