@@ -162,18 +162,6 @@ The session manager will relaunch the panel automatically. The applet should now
 3. Click the **+** button to add an applet
 4. Select **System Monitor**
 
-## Features
-
-- 📊 **CPU** - Percentage and temperature
-- 💾 **RAM** - Percentage and used/total GB
-- 🎮 **GPU** - Percentage, temperature, and VRAM (NVIDIA via NVML, AMD via sysfs)
-- 💿 **Disk** - Percentage and used/total GB
-- 🌐 **Network** - Live upload/download speed and session totals
-- ⚙️ **Per-metric toggles** - Each stat is independently toggleable; metrics with nothing enabled are hidden
-- 🖱️ **Click actions** - Left-click opens your system monitor, right-click opens settings
-- 🎨 **Native Look** - Seamless COSMIC Desktop integration
-- ⚡ **Low Resource** - Minimal memory and CPU footprint
-
 ## Troubleshooting
 
 ### Applet Not Appearing
@@ -197,7 +185,7 @@ sudo systemctl enable --now lm_sensors
 ## Uninstallation
 
 ```bash
-sudo just uninstall
+sudo rm /usr/local/bin/cosmic-sys-monitor
 ```
 
 ## License
